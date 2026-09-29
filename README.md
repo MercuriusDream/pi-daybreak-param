@@ -10,16 +10,16 @@ Persistent `/daybreak` configuration and explicit `access_programs.cyber` reques
 pi -e ./src/index.ts --daybreak-cyber daybreak_blue
 ```
 
-Install from GitHub:
-
-```sh
-pi install git:github.com/MercuriusDream/pi-daybreak-param
-```
-
-Once published to npm:
+Install from npm:
 
 ```sh
 pi install npm:pi-daybreak-param
+```
+
+Or install from GitHub (choose one source, not both):
+
+```sh
+pi install git:github.com/MercuriusDream/pi-daybreak-param
 ```
 
 For local development: `pi install /absolute/path/to/pi-daybreak-param`. Reload an active Pi session with `/reload` after installation.
