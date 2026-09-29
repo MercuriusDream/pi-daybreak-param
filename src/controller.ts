@@ -53,13 +53,13 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 		handler: async (args, ctx) => {
 			let value = args.trim();
 			if (value === "status") {
-				ctx.ui.notify(configError?.message ?? `Cyber request selection: ${mode}. This is not confirmation of Daybreak access.`, configError ? "error" : "info");
+				ctx.ui.notify(configError?.message ?? `Cyber request selection: ${mode}.`, configError ? "error" : "info");
 				return;
 			}
 			await ctx.waitForIdle();
 			if (!value) {
 				if (!ctx.hasUI) throw new Error("Use /daybreak <selection> or --daybreak-cyber in non-UI mode.");
-				const selected = await ctx.ui.select(`Cyber request selection: ${configError ? "CONFIG ERROR" : mode} (access not verified)`, Object.values(LABELS));
+				const selected = await ctx.ui.select(`Cyber request selection: ${configError ? "CONFIG ERROR" : mode}`, Object.values(LABELS));
 				if (selected === undefined) return; // Explicit user cancellation changes nothing.
 				const entry = Object.entries(LABELS).find(([, label]) => label === selected);
 				if (!entry) throw new Error("Invalid Daybreak menu selection.");
