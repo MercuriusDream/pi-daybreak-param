@@ -1,0 +1,17 @@
+{
+  "name": "pi-daybreak-param",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Persistent /daybreak access-program selection for Pi's OpenAI and Sign in with ChatGPT requests",
+  "license": "MIT",
+  "author": "MercuriusDream",
+  "repository": { "type": "git", "url": "git+https://github.com/MercuriusDream/pi-daybreak-param.git" },
+  "homepage": "https://github.com/MercuriusDream/pi-daybreak-param#readme",
+  "bugs": { "url": "https://github.com/MercuriusDream/pi-daybreak-param/issues" },
+  "files": ["src/", "docs/", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "keywords": ["pi-package"],
+  "pi": { "extensions": ["./src/index.ts"] },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-ai": "*" },
+  "scripts": { "test": "bun test" }
+}
