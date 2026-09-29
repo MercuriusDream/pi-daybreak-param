@@ -43,6 +43,12 @@ Menu and command selections are saved atomically to `~/.pi/agent/daybreak.json` 
 
 An absent config intentionally means inherit/default. A malformed or unreadable config is an error that blocks OpenAI requests—even with a valid CLI flag. Correct it explicitly using `/daybreak <selection>` or repair the file. Other providers are outside the wrapper's scope.
 
+## Footer display
+
+When Pi runs in its interactive TUI, the extension uses Pi's supported `setFooter()` API to render **model • requested program • reasoning effort** on one line (for example `gpt-6-sol • daybreak blue • max`). No separate Daybreak extension-status line is added. `standard` appears when explicitly selected; `default` adds no label. Configuration errors appear inline as `daybreak config error`, with their full reason available from `/daybreak status` and the startup notification. The label is the **requested** selection, not proof the server granted Daybreak.
+
+Pi does not expose an API to insert one segment into its built-in footer, so the extension replaces that footer in TUI mode and reproduces its basic path, usage, context, model, and other extensions' status lines. Other extensions replacing the footer can override this display (or vice versa). Non-interactive modes do not install a custom footer. `/reload` may be needed in an already-running session after updating the package.
+
 ## Why `/daybreak`, not `/settings`?
 
 Pi 0.99.1's built-in `/settings` has hardcoded rows and callbacks, with no supported extension setting registration API. `/daybreak` therefore provides its own supported selection dialog and persistent configuration, without monkey-patching Pi or replacing the built-in settings screen.

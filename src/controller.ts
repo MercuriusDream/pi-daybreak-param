@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Api, SimpleStreamOptions, StreamFunction } from "@earendil-works/pi-ai";
-import { isDirectOpenAI, MODES, parseMode, selectCyberProgram, type CyberMode } from "./payload.ts";
+import { MODES, parseMode, selectCyberProgram, type CyberMode } from "./payload.ts";
+import { createFooter } from "./footer.ts";
 import type { ModeStore } from "./config.ts";
 
 const LABELS: Record<CyberMode, string> = {
@@ -18,11 +19,12 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 
 	let mode: CyberMode = "default";
 	let configError: Error | undefined = new Error("Daybreak configuration has not been initialized. OpenAI request blocked.");
-	const refreshStatus = (ctx: ExtensionContext) => {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus("daybreak-param", configError ? "Cyber config: ERROR" :
-				mode !== "default" && isDirectOpenAI(ctx.model) ? `Cyber request: ${mode} (not verified)` : undefined);
-		}
+	const installFooter = (ctx: ExtensionContext) => {
+		if (ctx.mode !== "tui") return;
+		// Pi offers no public hook into one segment of its built-in footer. A
+		// custom footer is necessary for an inline model • program • effort label.
+		ctx.ui.setStatus("daybreak-param", undefined); // clear stale status from older versions
+		ctx.ui.setFooter((_tui, theme, data) => createFooter(ctx, theme, data, () => mode, () => configError));
 	};
 
 	pi.on("session_start", (_event, ctx) => {
@@ -42,9 +44,9 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 			configError = new Error(`Daybreak configuration error: ${error instanceof Error ? error.message : String(error)} OpenAI requests are blocked until corrected.`);
 			if (ctx.hasUI) ctx.ui.notify(configError.message, "error");
 		}
-		refreshStatus(ctx);
+		installFooter(ctx);
 	});
-	pi.on("model_select", (_event, ctx) => refreshStatus(ctx));
+	pi.on("model_select", (_event, ctx) => installFooter(ctx));
 
 	pi.registerCommand("daybreak", {
 		description: `Configure persistent cyber selection, or /daybreak status: ${MODES.join(" | ")}`,
@@ -69,12 +71,10 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 				store.write(next);
 			} catch (error) {
 				configError = new Error(`Failed to save Daybreak configuration: ${error instanceof Error ? error.message : String(error)} OpenAI requests are blocked until corrected.`);
-				refreshStatus(ctx);
 				throw configError;
 			}
 			mode = next;
 			configError = undefined;
-			refreshStatus(ctx);
 			ctx.ui.notify(next === "default"
 				? "Saved: inherit. Extension override disabled; existing payload and server defaults are unchanged."
 				: `Saved: request ${next} on OpenAI Responses calls. OpenAI still checks model compatibility and your approved access.`, "info");
