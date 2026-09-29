@@ -69,7 +69,9 @@ bun test
 Optional offline wire tests against an installed Pi AI distribution:
 
 ```sh
-PI_AI_TEST_DIST=/path/to/@earendil-works/pi-ai/dist bun test
+PI_AI_TEST_DIST=/path/to/@earendil-works/pi-ai/dist \
+PI_CODING_AGENT_TEST_DIST=/path/to/@earendil-works/pi-coding-agent/dist \
+bun test
 ```
 
-All wire-test HTTP is intercepted with a dummy token. Tests cover serialization and denied requests with no downgrade, plus validation failures that make **zero HTTP calls**. They do not test real account approval or live Daybreak behavior.
+All wire-test HTTP is intercepted with a dummy token. Tests cover serialization and denied requests with no downgrade, plus validation failures that make **zero HTTP calls**. The optional provider-composition test also verifies that Pi's real composer retains the built-in OpenAI models, API-key authentication, and ChatGPT subscription authentication. Tests do not test real account approval or live Daybreak behavior.

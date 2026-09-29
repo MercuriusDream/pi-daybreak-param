@@ -19,13 +19,10 @@ export interface RequestModel {
 }
 
 export function isDirectOpenAI(model: RequestModel | undefined): boolean {
-	if (!model || model.provider !== "openai" || model.api !== "openai-responses") return false;
-	try {
-		const url = new URL(model.baseUrl);
-		return url.origin === "https://api.openai.com" && url.pathname.replace(/\/+$/, "") === "/v1";
-	} catch {
-		return false;
-	}
+	// Match Pi's own SIWC detection exactly. Similar-looking URLs (including a
+	// trailing slash, query, fragment, or userinfo) do not use the same code path.
+	return model?.provider === "openai" && model.api === "openai-responses"
+		&& model.baseUrl === "https://api.openai.com/v1";
 }
 
 /** Return the replacement body itself, not { payload: ... }. Never mutate other handlers' objects. */

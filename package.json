@@ -1,6 +1,6 @@
 {
   "name": "pi-daybreak-param",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Persistent /daybreak access-program selection for Pi's OpenAI and Sign in with ChatGPT requests",
   "license": "MIT",

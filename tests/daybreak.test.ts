@@ -62,8 +62,10 @@ describe("payload selection", () => {
 			expect(() => selectCyberProgram(body, different, "daybreak_blue")).toThrow();
 		}
 	});
-	test("accepts canonical trailing slash", () => {
-		expect(selectCyberProgram(body, { ...model, baseUrl: `${model.baseUrl}/` }, "daybreak_blue")?.access_programs).toEqual({ cyber: "daybreak_blue" });
+	test("rejects endpoint variants that bypass Pi's exact SIWC detection", () => {
+		for (const baseUrl of [`${model.baseUrl}/`, `${model.baseUrl}?x=1`, `${model.baseUrl}#fragment`, "https://user@api.openai.com/v1", "https://api.openai.com:443/v1"]) {
+			expect(() => selectCyberProgram(body, { ...model, baseUrl }, "daybreak_blue")).toThrow("direct OpenAI");
+		}
 	});
 	test("malformed bodies and access_programs are errors", () => {
 		for (const bad of [null, [], "body", {}, { ...body, access_programs: null }, { ...body, access_programs: [] }, { ...body, access_programs: "bad" }]) {
