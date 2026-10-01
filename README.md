@@ -1,78 +1,114 @@
 # pi-daybreak-param
 
-Persistent `/daybreak` configuration and explicit `access_programs.cyber` request selection for Pi's **new OpenAI → Sign in with ChatGPT** integration. Tested against Pi **0.99.1**.
+A Pi extension that adds persistent selection of the `access_programs.cyber` request parameter to Pi's OpenAI Responses provider. It gives you a `/daybreak` command and a `--daybreak-cyber` startup flag.
 
-**Experimental for ChatGPT direct-token authentication:** OpenAI documents the public Responses endpoint and the Daybreak request field separately, but does not explicitly confirm Daybreak support/entitlement for Sign in with ChatGPT direct-token grants. This extension sends the field; it does not grant access or prove that the server applied it. See [research](docs/research.md).
+It targets the `openai` provider (`openai-responses` API) and works with both API-key auth and Sign in with ChatGPT. It does not touch the legacy `openai-codex` provider or any other provider.
 
-## Try it
+Tested with Pi 0.99.1; other versions are unverified.
+
+## Modes
+
+| Mode | Meaning |
+|---|---|
+| `default` | Don't override anything. The request's existing value (or the service's default behavior) stands. This is *not* an explicit opt-out. |
+| `standard` | Explicitly request standard safeguards. Distinct from `default`. |
+| `daybreak_blue` | Request the `daybreak_blue` program. |
+| `daybreak_red` | Request the `daybreak_red` program. |
+
+A requested program is just that — a request. The service decides account eligibility and model compatibility; selecting a mode here is not evidence that the service approved or applied it.
+
+## Installation
+
+Try it from source without installing:
 
 ```sh
 pi -e ./src/index.ts --daybreak-cyber daybreak_blue
 ```
 
-Install from npm:
+Or install it:
 
 ```sh
+# from npm
 pi install npm:pi-daybreak-param
+
+# from Git
+pi install git:github.com/MercuriusDream/pi-daybreak-param
+
+# from a local checkout
+pi install /absolute/path/to/pi-daybreak-param
 ```
 
-Or install from GitHub (choose one source, not both):
+Run `/reload` in an active Pi session after installing or updating.
+
+The published npm package declares `./src/index.ts` in its `pi.extensions` field and carries the `pi-package` keyword. Pi host APIs are peer dependencies and are not bundled.
+
+## Usage
+
+### Startup flag
 
 ```sh
-pi install git:github.com/MercuriusDream/pi-daybreak-param
+pi --daybreak-cyber daybreak_blue
 ```
 
-For local development: `pi install /absolute/path/to/pi-daybreak-param`. Reload an active Pi session with `/reload` after installation.
+The flag overrides the saved mode for that session only. It is never written to disk.
 
-Use your existing **OpenAI / Sign in with ChatGPT** login. Authentication and token refresh remain Pi's responsibility. The wrapper also applies to API-key authentication on the same OpenAI provider. It does not modify the legacy `openai-codex` provider.
+### Command
 
-### Commands
+| Command | What it does |
+|---|---|
+| `/daybreak` | Open the selection menu. |
+| `/daybreak status` | Show the selected mode, or the configuration error if there is one. |
+| `/daybreak daybreak_blue` | Request `daybreak_blue`. |
+| `/daybreak daybreak_red` | Request `daybreak_red`. |
+| `/daybreak standard` | Explicitly request standard safeguards. |
+| `/daybreak default` | Remove this extension's override. |
 
-```text
-/daybreak                 Open the configuration picker
-/daybreak status          Show requested selection or configuration error
-/daybreak daybreak_blue    Explicitly request Blue
-/daybreak daybreak_red     Explicitly request Red
-/daybreak standard        Explicit opt-out: request standard safeguards
-/daybreak default         Remove this extension's override (inherit existing/server behavior)
-```
+Menu and mode commands save immediately and persist across sessions and reloads. A command changes the saved and current selection but not the startup flag — if you started Pi with `--daybreak-cyber`, the flag wins again at the next session start.
 
-`standard` and `default` are **not the same**. Inheriting defaults may still enable Daybreak for an eligible account, and does not remove a field configured elsewhere. Use `standard` for explicit opt-out. The model must support the chosen program; errors are not retried with another tier or model.
+### Config file
 
-Menu and command selections are saved atomically to `~/.pi/agent/daybreak.json` (or the directory specified by `PI_CODING_AGENT_DIR`). They apply immediately and survive reloads/new sessions. The CLI flag is a startup override and is not saved; at the next session start it takes precedence over the saved choice. A command changes the current choice and saves it, but does not modify the CLI flag.
+The selection lives in `~/.pi/agent/daybreak.json` (or in the agent directory set by `PI_CODING_AGENT_DIR`).
 
-An absent config intentionally means inherit/default. A malformed or unreadable config is an error that blocks OpenAI requests—even with a valid CLI flag. Correct it explicitly using `/daybreak <selection>` or repair the file. Other providers are outside the wrapper's scope.
+- **No file** → `default`.
+- **Malformed or unreadable file** → an error that *blocks* OpenAI requests, even if you passed a valid startup flag. Fix the file, or save a valid selection with `/daybreak <mode>`. A failed save also blocks requests rather than continuing with stale configuration.
+
+## How requests are handled
+
+With any mode other than `default`, the extension adds or replaces `access_programs.cyber` while preserving every other request field and any other access-program keys. Before sending an explicitly selected program, it validates the actual request model and the canonical OpenAI API endpoint.
+
+Requests are delegated to Pi's own OpenAI Responses implementation: built-in models and both auth methods are preserved, and tools, cancellation, streaming, usage reporting, and instrumentation are all delegated.
+
+The extension fails closed. Invalid startup selections, configuration errors, invalid command input, and invalid explicit-mode payloads never silently fall back to something else. API permission errors, unsupported-program errors, and model-compatibility errors are passed through as-is. It will not retry with a different program or model, drop the field after an error, or claim the service granted access.
+
+`default` leaves existing request values alone — it won't strip a value set via `samplingParams` or by another extension.
 
 ## Footer display
 
-When Pi runs in its interactive TUI, the extension uses Pi's supported `setFooter()` API to render **model • requested program • reasoning effort** on one line (for example `gpt-6-sol • daybreak blue • max`). No separate Daybreak extension-status line is added. `standard` appears when explicitly selected; `default` adds no label. Configuration errors appear inline as `daybreak config error`, with their full reason available from `/daybreak status` and the startup notification. The label is the **requested** selection, not proof the server granted Daybreak.
+In the interactive TUI, the extension uses Pi's `setFooter()` API to show the model, the requested program, and the reasoning effort on one line:
 
-Pi does not expose an API to insert one segment into its built-in footer, so the extension replaces that footer in TUI mode and reproduces its basic path, usage, context, model, and other extensions' status lines. Other extensions replacing the footer can override this display (or vice versa). Non-interactive modes do not install a custom footer. `/reload` may be needed in an already-running session after updating the package.
+```text
+gpt-6-sol • daybreak blue • max
+```
 
-## Why `/daybreak`, not `/settings`?
+The label shows what you *requested*, not a verified service decision. `standard` is labeled when explicitly selected; `default` adds no label. Configuration errors appear as `daybreak config error` — check `/daybreak status` or the startup notification for the full reason.
 
-Pi 0.99.1's built-in `/settings` has hardcoded rows and callbacks, with no supported extension setting registration API. `/daybreak` therefore provides its own supported selection dialog and persistent configuration, without monkey-patching Pi or replacing the built-in settings screen.
+Pi has no public API for inserting a segment into its built-in footer, so in TUI mode this extension replaces the footer and reproduces its basic path, usage, context, model, and other-extension status information. Another extension that replaces the footer can conflict with this display. No custom footer is installed in non-interactive (print/JSON/RPC) modes.
 
-## Errors, not silent fallback
+## Limitations and security
 
-The extension uses a thin provider-stream wrapper rather than the extension payload event: Pi catches payload-event handler exceptions and continues, which cannot enforce fail-closed validation.
+Whether Daybreak is supported or entitled through Sign in with ChatGPT direct-token auth is **not established** by the available documentation — OpenAI documents the public Responses endpoint and the Daybreak request field separately. This extension sends the field; it does not grant access or prove the service applied it. See [docs/research.md](docs/research.md) for the full notes, including the SIWC references and the version-specific Pi source review.
 
-- Invalid CLI selection blocks OpenAI calls and becomes a provider error, including in non-UI modes. Correct it explicitly via `/daybreak` or restart with a valid flag.
-- Invalid command input is an error, leaving the prior selection unchanged.
-- Invalid/unreadable stored configuration blocks requests. Save failures also block requests rather than silently continuing with stale settings.
-- With an explicit selection, malformed payloads/access-program objects, mismatched request model IDs, and noncanonical endpoints fail **before HTTP**.
-- API permission, unsupported-program, and model-compatibility errors are preserved. No downgrade, field omission retry, or alternate-model retry is added.
-- The status displays **requested, not verified** access. No credential or payload logging.
+A selected program still requires service approval and a compatible model. The extension never reads or logs credentials or request payloads. As with any Pi extension, review the source before installing.
 
-The provider registration preserves built-in models/authentication and delegates to Pi's own OpenAI Responses implementation, including tools, cancellation, streaming, usage, and instrumentation. It uses the actual request model, not the selected-model approximation from `before_provider_request`.
+## Development
 
-## Tests
+Run the unit tests:
 
 ```sh
 bun test
 ```
 
-Optional offline wire tests against an installed Pi AI distribution:
+Optional offline integration tests run against installed Pi distributions:
 
 ```sh
 PI_AI_TEST_DIST=/path/to/@earendil-works/pi-ai/dist \
@@ -80,4 +116,9 @@ PI_CODING_AGENT_TEST_DIST=/path/to/@earendil-works/pi-coding-agent/dist \
 bun test
 ```
 
-All wire-test HTTP is intercepted with a dummy token. Tests cover serialization and denied requests with no downgrade, plus validation failures that make **zero HTTP calls**. The optional provider-composition test also verifies that Pi's real composer retains the built-in OpenAI models, API-key authentication, and ChatGPT subscription authentication. Tests do not test real account approval or live Daybreak behavior.
+Wire-test HTTP requests are intercepted and use a dummy token. The tests cover request serialization, preservation of denied responses without downgrade, and validation failures that make no HTTP calls at all. The optional provider-composition test checks that Pi's built-in OpenAI models and both auth methods survive wrapping. None of this verifies real account approval or live Daybreak behavior.
+
+## References
+
+- [Pi Packages](https://pi.dev/docs/latest/packages)
+- [OpenAI Daybreak guide](https://developers.openai.com/api/docs/guides/daybreak)
