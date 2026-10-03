@@ -18,16 +18,10 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 	});
 
 	let mode: CyberMode = "default";
-	let configError: Error | undefined = new Error("Daybreak configuration has not been initialized. OpenAI request blocked.");
-	const installFooter = (ctx: ExtensionContext) => {
-		if (ctx.mode !== "tui") return;
-		// Pi offers no public hook into one segment of its built-in footer. A
-		// custom footer is necessary for an inline model • program • effort label.
-		ctx.ui.setStatus("daybreak-param", undefined); // clear stale status from older versions
-		ctx.ui.setFooter((_tui, theme, data) => createFooter(ctx, theme, data, () => mode, () => configError));
-	};
-
-	pi.on("session_start", (_event, ctx) => {
+	let initialized = false;
+	let configError: Error | undefined;
+	const loadConfiguration = () => {
+		initialized = true;
 		const flag = pi.getFlag("daybreak-cyber");
 		try {
 			// Always validate stored configuration: a flag must not hide a broken config file.
@@ -42,8 +36,19 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 			configError = undefined;
 		} catch (error) {
 			configError = new Error(`Daybreak configuration error: ${error instanceof Error ? error.message : String(error)} OpenAI requests are blocked until corrected.`);
-			if (ctx.hasUI) ctx.ui.notify(configError.message, "error");
 		}
+	};
+	const installFooter = (ctx: ExtensionContext) => {
+		if (ctx.mode !== "tui") return;
+		// Pi offers no public hook into one segment of its built-in footer. A
+		// custom footer is necessary for an inline model • program • effort label.
+		ctx.ui.setStatus("daybreak-param", undefined); // clear stale status from older versions
+		ctx.ui.setFooter((_tui, theme, data) => createFooter(ctx, theme, data, () => mode, () => configError));
+	};
+
+	pi.on("session_start", (_event, ctx) => {
+		loadConfiguration();
+		if (configError && ctx.hasUI) ctx.ui.notify(configError.message, "error");
 		installFooter(ctx);
 	});
 	pi.on("model_select", (_event, ctx) => installFooter(ctx));
@@ -51,6 +56,7 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 	pi.registerCommand("daybreak", {
 		description: `Configure persistent cyber selection, or /daybreak status: ${MODES.join(" | ")}`,
 		handler: async (args, ctx) => {
+			if (!initialized) loadConfiguration();
 			let value = args.trim();
 			if (value === "status") {
 				ctx.ui.notify(configError?.message ?? `Cyber request selection: ${mode}.`, configError ? "error" : "info");
@@ -74,6 +80,7 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 				throw configError;
 			}
 			mode = next;
+			initialized = true;
 			configError = undefined;
 			ctx.ui.notify(next === "default"
 				? "Saved: inherit. Extension override disabled; existing payload and server defaults are unchanged."
@@ -87,6 +94,9 @@ export function registerDaybreak(pi: ExtensionAPI, streamOpenAI: StreamFunction<
 	pi.registerProvider("openai", {
 		api: "openai-responses",
 		streamSimple(model, context, options) {
+			// Some hosts can invoke a registered provider before dispatching session_start.
+			// Read the flag here, not in the extension factory (flags are populated later).
+			if (!initialized) loadConfiguration();
 			const requestMode = mode;
 			const requestError = configError;
 			return streamOpenAI(model, context, {

@@ -75,6 +75,22 @@ describe("payload selection", () => {
 });
 
 describe("fail-closed stream wrapper", () => {
+	test("first request initializes configuration even without session_start", async () => {
+		const flagged = harness("daybreak_blue");
+		expect((await flagged.request()).access_programs.cyber).toBe("daybreak_blue");
+		const saved = harness();
+		await saved.commands.get("daybreak").handler("standard", saved.ctx);
+		expect((await saved.request()).access_programs.cyber).toBe("standard");
+		const inherited = harness();
+		expect(await inherited.request()).toBe(body);
+	});
+	test("lazy initialization still blocks invalid flags and broken stored config", async () => {
+		const invalid = harness("blue");
+		await expect(invalid.request()).rejects.toThrow("Invalid --daybreak-cyber");
+		const broken = harness("standard");
+		broken.setReadError(new Error("broken JSON"));
+		await expect(broken.request()).rejects.toThrow("broken JSON");
+	});
 	test("flag selects program and wrapper uses actual request model", async () => {
 		const h = harness("daybreak_blue");
 		h.handlers.get("session_start")!({}, h.ctx);
